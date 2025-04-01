@@ -13,11 +13,12 @@ load_dotenv()
 
 response = []
 
-db_host = 'mainline.proxy.rlwy.net'
-db_user = 'root'
-db_password = 'lJowZNdSlShjakKWUZkdepWWLxhlhKoC'
-db_name = 'railway'
-db_port = 39784
+db_host = os.getenv("DB_HOST")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+db_name = os.getenv("DB_NAME")
+db_port = int(os.getenv("DB_PORT", 39784))
+
 
 with st.sidebar:
     st.title("Database Configuration")
