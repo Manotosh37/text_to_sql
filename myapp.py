@@ -17,7 +17,7 @@ db_host = os.getenv("DB_HOST")
 db_user = os.getenv("DB_USER")
 db_password = os.getenv("DB_PASSWORD")
 db_name = os.getenv("DB_NAME")
-db_port = int(os.getenv("DB_PORT", 39784))
+db_port = int(os.getenv("DB_PORT", 56065))
 
 
 with st.sidebar:
