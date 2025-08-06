@@ -3,7 +3,7 @@ import streamlit as st
 import re
 import pymysql
 from langchain.chains import create_sql_query_chain
-from langchain_google_genai import GoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
 from sqlalchemy.exc import ProgrammingError
 from langchain_community.utilities import SQLDatabase
@@ -23,7 +23,6 @@ db_port = int(os.getenv("DB_PORT", 56065))
 with st.sidebar:
     st.title("Database Configuration")
     
-    # Connection form
     db_host = st.text_input("Host", value=db_host)
     db_port = st.number_input("Port", value=db_port)
     db_user = st.text_input("Username", value=db_user)
@@ -33,7 +32,6 @@ with st.sidebar:
     st.markdown("---")
     st.info("Current configuration will be used for the next query")
 
-# Create SQLAlchemy engine with proper SSL configuration
 engine = create_engine(
     f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}",
     connect_args={
@@ -45,43 +43,59 @@ engine = create_engine(
 )
 
 
-# Initialize SQLDatabase
 db = SQLDatabase(engine, sample_rows_in_table_info=3)
 
-# Initialize LLM
-llm = GoogleGenerativeAI(model="gemini-1.5-pro", google_api_key=os.environ["GOOGLE_API_KEY"])
 
-# Create SQL query chain
+
+llm = ChatOpenAI(
+    model="llama3-70b-8192",  # or "mixtral-8x7b-32768"
+    temperature=0.3,
+    max_tokens=1024,
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1"
+)
+
 chain = create_sql_query_chain(llm, db)
 
 def execute_query(question):
     try:
-        # Generate SQL query from question
+        
         response = chain.invoke({"question": question})
-        match = re.search(r"```sql\n(.*?)\n```", response, re.DOTALL)
+
         
+        match = re.search(r"```(?:sql)?\s*(.*?)\s*```", response, re.DOTALL)
         if not match:
-            st.error("No valid SQL query found in response!")
+            match = re.search(r"SQLQuery:\s*(SELECT .*?;)", response, re.IGNORECASE | re.DOTALL)
+        if not match:
+            match = re.search(r"(SELECT .*?;)", response, re.IGNORECASE | re.DOTALL)
+
+        if not match:
+            st.error("Couldn’t extract a SQL query. Try rephrasing your question.")
+            st.text("Raw LLM Output:")
+            st.code(response)
             return None, None
-        
-        cleaned_query = match.group(1).strip()                
+
+        cleaned_query = match.group(1).strip()
+
         result = db.run(cleaned_query)
         return cleaned_query, result
 
-    except ProgrammingError:
-        st.error("The query couldn't be executed. Please try a different question.")
-        return None, None            
     except ProgrammingError as e:
-        st.error("Something went wrong. Please try again.")
+        st.error("SQL Error")
+        st.text(str(e))
+        return None, None
+    except Exception as e:
+        st.error("Unexpected Error")
+        st.text(str(e))
         return None, None
 
-# Streamlit interface
-st.title("Natural Language -> SQL Query")
 
-# Input from user
-question = st.text_input("Enter your query:")
+st.title("Question Answering App")
 
-if st.button("Fetch"):
+
+question = st.text_input("Enter your question:")
+
+if st.button("Execute"):
     if question:
         cleaned_query, query_result = execute_query(question)
         
@@ -94,4 +108,3 @@ if st.button("Fetch"):
             st.write("No result returned due to an error.")
     else:
         st.write("Please enter a question.")
-        
