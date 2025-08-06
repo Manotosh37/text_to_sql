@@ -90,12 +90,12 @@ def execute_query(question):
         return None, None
 
 
-st.title("Question Answering App")
+st.title("Natural Language -> SQL Query")
 
 
-question = st.text_input("Enter your question:")
+question = st.text_input("Enter your query:")
 
-if st.button("Execute"):
+if st.button("Fetch"):
     if question:
         cleaned_query, query_result = execute_query(question)
         
